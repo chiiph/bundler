@@ -84,6 +84,8 @@ def collect_deps(root, dest_lib_dir, path_file):
         # if i.identifier == "distutils":
         #     i.filename = distutils.__file__
         print i.identifier, i.filename
+        if i.identifier == "leap.bitmask":
+            continue
         parts = i.identifier.split(".")
         destdir = os.path.join(*([dest_lib_dir]+parts))
         mkdir_p(destdir)
@@ -104,9 +106,3 @@ def collect_deps(root, dest_lib_dir, path_file):
         #     i.filename = site.__file__
         print i.identifier, i.filename
         file_util.copy_file(i.filename, dest_lib_dir)
-
-    # TODO: remove everything in dest_lib_dir/PySide that is not QtCore, QtGui and __init__
-
-    # ON OSX ONLY:
-    # TODO: remove dest_lib_dir/sre* and PYTHONHOME from the launcher script
-    # remove dest_lib_dir/_socket.so

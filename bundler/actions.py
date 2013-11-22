@@ -7,11 +7,15 @@ from contextlib import contextmanager
 from distutils import file_util, dir_util
 
 from sh import git, cd, python, mkdir, make, cp, glob, pip, rm
-from sh import find, SetFile, hdiutil, ln
+from sh import find, ln, tar, mv
 
 from utils import IS_MAC
+
+if IS_MAC:
+    from sh import SetFile, hdiutil
+    from darwin_dyliber import fix_all_dylibs
+
 from depcollector import collect_deps
-from darwin_dyliber import fix_all_dylibs
 
 class Action(object):
     __metaclass__ = ABCMeta
@@ -213,11 +217,11 @@ class CopyBinaries(Action):
     def run(self, binaries_path):
         print "Copying binaries..."
         dest_lib_dir = platform_dir(self._basedir, "lib")
-        cp(glob(os.path.join(binaries_path, "Qt*")), dest_lib_dir)
-        cp(glob(os.path.join(binaries_path, "*.dylib")), dest_lib_dir)
-        cp(glob(os.path.join(binaries_path, "Python")), dest_lib_dir)
 
         if IS_MAC:
+            cp(glob(os.path.join(binaries_path, "Qt*")), dest_lib_dir)
+            cp(glob(os.path.join(binaries_path, "*.dylib")), dest_lib_dir)
+            cp(glob(os.path.join(binaries_path, "Python")), dest_lib_dir)
             resources_dir = os.path.join(self._basedir,
                                          "Bitmask",
                                          "Bitmask.app",
@@ -232,16 +236,18 @@ class CopyBinaries(Action):
 
             cp("-r", os.path.join(binaries_path, "qt_menu.nib"), resources_dir)
             cp("-r", os.path.join(binaries_path, "tuntap-installer.app"), resources_dir)
+            cp(os.path.join(binaries_path, "Bitmask"), platform_dir(self._basedir))
         else:
-            eip_dir = platform_dir(self._basedir, "apps", "eip")
-            cp(glob(os.path.join(binaries_path, "openvpn.leap*")), eip_dir)
+            cp(glob(os.path.join(binaries_path, "*.so*")), dest_lib_dir)
 
-            mkdir(os.path.join(resources_dir, "openvpn"))
+            eip_dir = platform_dir(self._basedir, "apps", "eip")
+            cp(os.path.join(binaries_path, "openvpn"), eip_dir)
+
             cp("-r", glob(os.path.join(binaries_path, "openvpn.files", "*")), os.path.join(eip_dir, "files"))
+            cp(os.path.join(binaries_path, "bitmask"), platform_dir(self._basedir))
 
         mail_dir = platform_dir(self._basedir, "apps", "mail")
         cp(os.path.join(binaries_path, "gpg"), mail_dir)
-        cp(os.path.join(binaries_path, "Bitmask"), platform_dir(self._basedir))
         print "Done"
 
 class PLister(Action):
@@ -373,9 +379,9 @@ class CopyMisc(Action):
                         "leap_pycommon",
                         "src", "leap", "common", "cacert.pem"),
            os.path.join(lib_dir, "leap", "common"))
-        cp(os.path.join(self._basedir,
-                        "bitmask_client", "build",
-                        "lib", "leap", "bitmask", "_version.py"),
+        cp(glob(os.path.join(self._basedir,
+                             "bitmask_client", "build",
+                             "lib*", "leap", "bitmask", "_version.py")),
            os.path.join(apps_dir, "leap", "bitmask"))
 
         cp(os.path.join(self._basedir,
@@ -431,6 +437,22 @@ class DmgIt(Action):
         hdiutil("convert", raw_dmg_path, "-format", "UDZO", "-o",
                 dmg_path)
         rm("-f", raw_dmg_path)
+
+class TarballIt(Action):
+    def __init__(self, basedir, skip, do):
+        Action.__init__(self, "tarballit", basedir, skip, do)
+
+    @skippable
+    def run(self):
+        cd(self._basedir)
+        version = "unknown"
+        with push_pop("bitmask_client"):
+            version = git("describe").strip()
+        import platform
+        bits = platform.architecture()[0][:2]
+        bundle_name = "Bitmask-linux%s-%s" % (bits, version)
+        mv("Bitmask", bundle_name)
+        tar("cjf", bundle_name+".tar.bz2", bundle_name)
 
 class PycRemover(Action):
     def __init__(self, basedir, skip, do):
