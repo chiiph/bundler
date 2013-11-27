@@ -13,9 +13,9 @@ from distutils import dir_util
 from actions import GitCloneAll, PythonSetupAll, CreateDirStructure
 from actions import CollectAllDeps, CopyBinaries, PLister, SeededConfig
 from actions import DarwinLauncher, CopyAssets, CopyMisc, FixDylibs
-from actions import DmgIt, PycRemover, TarballIt
+from actions import DmgIt, PycRemover, TarballIt, MtEmAll, ZipIt
 
-from utils import IS_MAC
+from utils import IS_MAC, IS_WIN
 
 sorted_repos = [
     "leap_assets",
@@ -106,12 +106,19 @@ def main():
         pyc = init(PycRemover)
         pyc.run()
 
+        if IS_WIN:
+            mt = init(MtEmAll)
+            mt.run()
+
         if IS_MAC:
             dm = init(DmgIt)
-            dm.run()
+            dm.run(sorted_repos, args.nightly)
+        elif IS_WIN:
+            zi = init(ZipIt)
+            zi.run(sorted_repos, args.nightly)
         else:
             ti = init(TarballIt)
-            ti.run()
+            ti.run(sorted_repos, args.nightly)
 
         # do manifest on windows
 
