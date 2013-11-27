@@ -13,7 +13,7 @@ from distutils import dir_util
 from actions import GitCloneAll, PythonSetupAll, CreateDirStructure
 from actions import CollectAllDeps, CopyBinaries, PLister, SeededConfig
 from actions import DarwinLauncher, CopyAssets, CopyMisc, FixDylibs
-from actions import DmgIt, PycRemover
+from actions import DmgIt, PycRemover, TarballIt
 
 from utils import IS_MAC
 
@@ -109,6 +109,9 @@ def main():
         if IS_MAC:
             dm = init(DmgIt)
             dm.run()
+        else:
+            ti = init(TarballIt)
+            ti.run()
 
         # do manifest on windows
 

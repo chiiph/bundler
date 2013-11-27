@@ -19,6 +19,12 @@ NOTE: Most of this will be done automatically in a while, but this is how it's d
 ::
   pip install -r pkg/requirements.pip
 
+- Install the needed dependencies
+
+::
+  # Linux only dependencies
+  aptitude install libsqlite3-dev
+
 - psutils is a dependency for another dependency, it might get installed in a zip form, which we don't want, so we install it by hand for now
 
 ::
@@ -50,11 +56,20 @@ NOTE: Most of this will be done automatically in a while, but this is how it's d
   git clone git://gitorious.org/pyside/shiboken.git
   git clone git://gitorious.org/pyside/pyside.git
   git clone git://gitorious.org/pyside/pyside-tools.git
+
+  # OSX
   export PYSIDESANDBOXPATH=$HOME/Code/pyside/sandbox
+  export DYLD_LIBRARY_PATH=$PYSIDESANDBOXPATH/lib:$DYLD_LIBRARY_PATH
+
+  # Linux
+  export PYSIDESANDBOXPATH=$HOME/sandbox
+  export LD_LIBRARY_PATH=$PYSIDESANDBOXPATH/lib:$LD_LIBRARY_PATH
+
   export PATH=$PYSIDESANDBOXPATH/bin:$PATH
   export PYTHONPATH=$PYSIDESANDBOXPATH/lib/python2.6/site-packages:$PYTHONPATH
-  export DYLD_LIBRARY_PATH=$PYSIDESANDBOXPATH/lib:$DYLD_LIBRARY_PATH
   export PKG_CONFIG_PATH=$PYSIDESANDBOXPATH/lib/pkgconfig:$PKG_CONFIG_PATH
+
+  alias runcmake='cmake .. -DCMAKE_INSTALL_PREFIX=$PYSIDESANDBOXPATH'
 
   # In OSX, the paths may vary depending on the Qt installation
   runcmake -DCMAKE_OSX_DEPLOYMENT_TARGET=10.7 -DCMAKE_OSX_SYSROOT=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.8.sdk .. -DQT_QMAKE_EXECUTABLE=/usr/local/bin/qmake -DQT_INCLUDE_DIR=/usr/local/include/ -DQT_INCLUDES=/usr/local/include/ -DALTERNATIVE_QT_INCLUDE_DIR=/usr/local/include/
