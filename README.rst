@@ -14,16 +14,24 @@ NOTE: Most of this will be done automatically in a while, but this is how it's d
 ::
   mkvirtualenv bundle
 
-- Install bundler deps
+- Install bundler deps (OSX or Linux)
 
 ::
   pip install -r pkg/requirements.pip
 
+- Install bundler deps (Windows)
+
+::
+  pip install pbs  # There's no sh in Windows
+  pip install modulegraph altgraph
+
 - Install the needed dependencies
 
 ::
-  # Linux only dependencies
+  # Linux
   aptitude install libsqlite3-dev
+
+  # In Windows you'll need sqlite3 in your path
 
 - psutils is a dependency for another dependency, it might get installed in a zip form, which we don't want, so we install it by hand for now
 
@@ -113,5 +121,12 @@ NOTE: Most of this will be done automatically in a while, but this is how it's d
 - Create the bundle:
 
 ::
+  # On OSX and Linux
   python bundler/main.py --workon <path/to/bundle/temp> --paths-file <paths file> --binaries <binaries dir> --seeded-config <seeded config> [--nightly] --do gitclone pythonsetup
+  python bundler/main.py --workon <path/to/bundle/temp> --paths-file <paths file> --binaries <binaries dir> --seeded-config <seeded config> [--nightly] --skip gitclone pythonsetup
+
+  # On Windows
+  python bundler/main.py --workon <path/to/bundle/temp> --paths-file <paths file> --binaries <binaries dir> --seeded-config <seeded config> [--nightly] --do gitclone
+  # Modify bitmask_client/pkg/requirements.pip, comment out python-daemon
+  python bundler/main.py --workon <path/to/bundle/temp> --paths-file <paths file> --binaries <binaries dir> --seeded-config <seeded config> [--nightly] --do pythonsetup
   python bundler/main.py --workon <path/to/bundle/temp> --paths-file <paths file> --binaries <binaries dir> --seeded-config <seeded config> [--nightly] --skip gitclone pythonsetup

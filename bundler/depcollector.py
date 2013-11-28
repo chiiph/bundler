@@ -4,6 +4,7 @@ import errno
 
 from distutils import dir_util, file_util
 from modulegraph import modulegraph
+from utils import IS_WIN
 
 
 def mkdir_p(path):

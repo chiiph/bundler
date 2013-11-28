@@ -1,19 +1,37 @@
+import datetime
+import hashlib
 import os
 import stat
 import sys
+import subprocess
+import zipfile
 
 from abc import ABCMeta, abstractmethod
 from contextlib import contextmanager
 from distutils import file_util, dir_util
 
-from sh import git, cd, python, mkdir, make, cp, glob, pip, rm
-from sh import find, ln, tar, mv
-
-from utils import IS_MAC
+from utils import IS_MAC, IS_WIN
 
 if IS_MAC:
     from sh import SetFile, hdiutil
     from darwin_dyliber import fix_all_dylibs
+elif IS_WIN:
+    import pbs
+    from pbs import cd, glob
+    git = pbs.Command("C:\\Program Files\\Git\\bin\\git.exe")
+    python = pbs.Command("C:\\Python27\\python.exe")
+    pip = pbs.Command("C:\\Python27\\scripts\\pip.exe")
+    mkdir = pbs.Command("C:\\Program Files\\Git\\bin\\mkdir.exe")
+    make = pbs.Command("C:\\MinGW\\bin\\mingw32-make.exe")
+    cp = pbs.Command("C:\\Program Files\\Git\\bin\\cp.exe")
+    rm = pbs.Command("C:\\Program Files\\Git\\bin\\rm.exe")
+    find = pbs.Command("C:\\Program Files\\Git\\bin\\find.exe")
+    ln = pbs.Command("C:\\Program Files\\Git\\bin\\ln.exe")
+    tar = pbs.Command("C:\\Program Files\\Git\\bin\\tar.exe")
+    mv = pbs.Command("C:\\Program Files\\Git\\bin\\mv.exe")
+else:
+    from sh import git, cd, python, mkdir, make, cp, glob, pip, rm
+    from sh import find, ln, tar, mv
 
 from depcollector import collect_deps
 
@@ -74,6 +92,26 @@ def push_pop(*directories):
     yield
     cd(os.path.join(*(("..",)*len(directories))))
 
+def get_version(repos, nightly):
+    if not nightly:
+        version = "unknown"
+        with push_pop("bitmask_client"):
+            version = git("describe").strip()
+        return version
+
+    m = hashlib.sha256()
+    for repo in repos:
+        version = "unknown"
+        with push_pop(repo):
+            try:
+                version = git("describe").strip()
+            except:
+                pass
+        m.update(version)
+    
+    return "{0}-{1}".format(str(datetime.date.today()),
+                            m.hexdigest()[:8])
+
 class GitCloneAll(Action):
     def __init__(self, basedir, skip, do):
         Action.__init__(self, "gitclone", basedir, skip, do)
@@ -81,7 +119,7 @@ class GitCloneAll(Action):
     def _repo_url(self, repo_name):
         if repo_name == "leap_assets":
             return "git://leap.se/leap_assets"
-        return "https://github.com/leapcode/{0}".format(repo_name)
+        return "git://github.com/leapcode/{0}".format(repo_name)
 
     @skippable
     def run(self, sorted_repos, nightly):
@@ -143,6 +181,12 @@ class PythonSetupAll(Action):
                     python("setup.py", "develop")
                     sys.path.append(os.path.join(self._basedir, repo, "src"))
 
+def _convert_path_for_win(path):
+    npath = path
+    if IS_WIN:
+        npath = path.replace("\\", "/")
+    return npath
+
 class CreateDirStructure(Action):
     def __init__(self, basedir, skip, do):
         Action.__init__(self, "createdirs", basedir, skip, do)
@@ -160,11 +204,13 @@ class CreateDirStructure(Action):
     def _create_dir_structure(self, basedir):
         mkdirp = mkdir.bake("-p")
         apps = os.path.join(basedir, "apps")
-        mkdirp(apps)
-        if not IS_MAC:
-            mkdirp(os.path.join(apps, "eip", "files"))
-        mkdirp(os.path.join(apps, "mail"))
-        mkdirp(os.path.join(basedir, "lib"))
+        mkdirp(_convert_path_for_win(apps))
+        if IS_WIN:
+            mkdirp(_convert_path_for_win(os.path.join(apps, "eip")))
+        else:
+            mkdirp(_convert_path_for_win(os.path.join(apps, "eip", "files")))
+        mkdirp(_convert_path_for_win(os.path.join(apps, "mail")))
+        mkdirp(_convert_path_for_win(os.path.join(basedir, "lib")))
 
     def _darwin_create_dir_structure(self):
         mkdirp = mkdir.bake("-p")
@@ -183,15 +229,26 @@ class CollectAllDeps(Action):
     def _remove_unneeded(self, lib_dir):
         print "Removing unneeded files..."
         files = find(lib_dir).strip().splitlines()
+        keep = ["QtCore.so",
+                "QtGui.so",
+                "__init__.py",
+                "_utils.py",
+                "PySide",
+                ""]  # empty means the whole pyside dir
+        if IS_WIN:
+            keep = ["QtCore4.dll",
+                    "QtGui4.dll",
+                    "__init__.py",
+                    "_utils.py",
+                    "PySide",
+                    "QtGui.pyd",
+                    "QtCore.pyd",
+                    ""]  # empty means the whole pyside dir
         for f in files:
             if f.find("PySide") > 0:
-                if os.path.split(f)[1] not in ["QtCore.so",
-                                               "QtGui.so",
-                                               "__init__.py",
-                                               "_utils.py",
-                                               "PySide",
-                                               ""]:  # empty means the whole pyside dir
+                if os.path.split(f)[1] not in keep:
                     rm("-rf", f)
+                    pass
         print "Done"
 
     @skippable
@@ -237,6 +294,36 @@ class CopyBinaries(Action):
             cp("-r", os.path.join(binaries_path, "qt_menu.nib"), resources_dir)
             cp("-r", os.path.join(binaries_path, "tuntap-installer.app"), resources_dir)
             cp(os.path.join(binaries_path, "Bitmask"), platform_dir(self._basedir))
+        elif IS_WIN:
+            root = _convert_path_for_win(os.path.join(self._basedir, "Bitmask"))
+            for i in glob(os.path.join(binaries_path, "*.dll")):
+                cp(_convert_path_for_win(i),
+                   root)
+            import win32com
+            win32comext_path = os.path.split(win32com.__file__)[0] + "ext"
+            shell_path = os.path.join(win32comext_path, "shell")
+            cp("-r", 
+               _convert_path_for_win(shell_path),
+               _convert_path_for_win(os.path.join(dest_lib_dir, "win32com")))
+            cp(_convert_path_for_win(
+                os.path.join(binaries_path, "bitmask.exe")),
+               root)
+            cp(_convert_path_for_win(
+                os.path.join(binaries_path, "Microsoft.VC90.CRT.manifest")),
+               root)
+            cp(_convert_path_for_win(
+                os.path.join(binaries_path, "openvpn_leap.exe")),
+               _convert_path_for_win(
+                   os.path.join(root, "apps", "eip")))
+            cp(_convert_path_for_win(
+                os.path.join(binaries_path, "openvpn_leap.exe.manifest")),
+               _convert_path_for_win(
+                   os.path.join(root, "apps", "eip")))
+            cp("-r",
+               _convert_path_for_win(
+                os.path.join(binaries_path, "tap_driver")),
+               _convert_path_for_win(
+                   os.path.join(root, "apps", "eip")))
         else:
             cp(glob(os.path.join(binaries_path, "*.so*")), dest_lib_dir)
 
@@ -247,7 +334,8 @@ class CopyBinaries(Action):
             cp(os.path.join(binaries_path, "bitmask"), platform_dir(self._basedir))
 
         mail_dir = platform_dir(self._basedir, "apps", "mail")
-        cp(os.path.join(binaries_path, "gpg"), mail_dir)
+        cp(_convert_path_for_win(os.path.join(binaries_path, "gpg")),
+           _convert_path_for_win(mail_dir))
         print "Done"
 
 class PLister(Action):
@@ -367,26 +455,31 @@ class CopyMisc(Action):
     @skippable
     def run(self):
         print "Copying misc files..."
-        apps_dir = platform_dir(self._basedir, "apps")
-        cp(os.path.join(self._basedir, "bitmask_launcher", "src", "launcher.py"),
+        apps_dir = _convert_path_for_win(platform_dir(self._basedir, "apps"))
+        cp(_convert_path_for_win(
+            os.path.join(self._basedir, "bitmask_launcher", "src", "launcher.py")),
            apps_dir)
-        cp("-r", os.path.join(self._basedir, "thandy", "lib", "thandy"),
+        cp("-r", 
+           _convert_path_for_win(os.path.join(self._basedir, "thandy", "lib", "thandy")),
            apps_dir)
-        cp("-r", os.path.join(self._basedir, "bitmask_client", "src", "leap"),
+        cp("-r",
+           _convert_path_for_win(os.path.join(self._basedir, "bitmask_client", "src", "leap")),
            apps_dir)
-        lib_dir = platform_dir(self._basedir, "lib")
-        cp(os.path.join(self._basedir,
-                        "leap_pycommon",
-                        "src", "leap", "common", "cacert.pem"),
-           os.path.join(lib_dir, "leap", "common"))
-        cp(glob(os.path.join(self._basedir,
-                             "bitmask_client", "build",
-                             "lib*", "leap", "bitmask", "_version.py")),
+        lib_dir = _convert_path_for_win(platform_dir(self._basedir, "lib"))
+        cp(_convert_path_for_win(
+            os.path.join(self._basedir,
+                         "leap_pycommon",
+                         "src", "leap", "common", "cacert.pem")),
+           _convert_path_for_win(os.path.join(lib_dir, "leap", "common")))
+        cp(_convert_path_for_win(glob(os.path.join(self._basedir,
+                                                   "bitmask_client", "build",
+                                                   "lib*", "leap", "bitmask", "_version.py"))[0]),
            os.path.join(apps_dir, "leap", "bitmask"))
 
-        cp(os.path.join(self._basedir,
-                        "bitmask_client", "relnotes.txt"),
-           os.path.join(self._basedir, "Bitmask"))
+        cp(_convert_path_for_win(
+            os.path.join(self._basedir,
+                         "bitmask_client", "relnotes.txt")),
+           _convert_path_for_win(os.path.join(self._basedir, "Bitmask")))
         print "Done"
 
 class FixDylibs(Action):
@@ -402,11 +495,10 @@ class DmgIt(Action):
         Action.__init__(self, "dmgit", basedir, skip, do)
 
     @skippable
-    def run(self):
+    def run(self, repos, nightly):
+        print "Dmg'ing it..."
         cd(self._basedir)
-        version = "unknown"
-        with push_pop("bitmask_client"):
-            version = git("describe").strip()
+        version = get_version(repos, nightly)
         dmg_dir = os.path.join(self._basedir, "dmg")
         template_dir = os.path.join(self._basedir, "Bitmask")
         mkdir("-p", dmg_dir)
@@ -437,22 +529,23 @@ class DmgIt(Action):
         hdiutil("convert", raw_dmg_path, "-format", "UDZO", "-o",
                 dmg_path)
         rm("-f", raw_dmg_path)
+        print "Done"
 
 class TarballIt(Action):
     def __init__(self, basedir, skip, do):
         Action.__init__(self, "tarballit", basedir, skip, do)
 
     @skippable
-    def run(self):
+    def run(self, repos, nightly):
+        print "Tarballing it..."
         cd(self._basedir)
-        version = "unknown"
-        with push_pop("bitmask_client"):
-            version = git("describe").strip()
+        version = get_version(repos, nightly)
         import platform
         bits = platform.architecture()[0][:2]
         bundle_name = "Bitmask-linux%s-%s" % (bits, version)
         mv("Bitmask", bundle_name)
         tar("cjf", bundle_name+".tar.bz2", bundle_name)
+        print "Done"
 
 class PycRemover(Action):
     def __init__(self, basedir, skip, do):
@@ -461,5 +554,51 @@ class PycRemover(Action):
     @skippable
     def run(self):
         print "Removing .pyc files..."
-        find(self._basedir, "-name", "\"*.pyc\"", "-delete")
+        if IS_WIN:
+            files = find(self._basedir, "-name", "*.pyc").strip().splitlines()
+            for f in files:
+                rm(f)
+        else:
+            find(self._basedir, "-name", "\"*.pyc\"", "-delete")
+        print "Done"
+
+class MtEmAll(Action):
+    def __init__(self, basedir, skip, do):
+        Action.__init__(self, "mtemall", basedir, skip, do)
+
+    @skippable
+    def run(self):
+        print "Mt'ing all the files..."
+        cd(os.path.join(self._basedir, "Bitmask"))
+        manifest_path =  "Microsoft.VC90.CRT.manifest"
+        binary_path = "bitmask.exe"
+        subprocess.check_call(["C:\\Program Files\\Windows Kits\\8.0\\bin\\x86\\mt.exe",
+                               "-nologo", "-manifest", "Microsoft.VC90.CRT.manifest",
+                               "-outputresource:bitmask.exe;#1"])
+        cd(os.path.join("apps", "eip"))
+        subprocess.check_call(["C:\\Program Files\\Windows Kits\\8.0\\bin\\x86\\mt.exe",
+                               "-nologo", "-manifest", "openvpn_leap.exe.manifest",
+                               "-outputresource:openvpn_leap.exe;#1"])
+        print "Done"
+
+class ZipIt(Action):
+    def __init__(self, basedir, skip, do):
+        Action.__init__(self, "zipit", basedir, skip, do)
+
+    def _zipdir(self, path, zf):
+        for root, dirs, files in os.walk(path):
+            for f in files:
+                zf.write(os.path.join(root, f))
+
+    @skippable
+    def run(self, repos, nightly):
+        print "Ziping it..."
+        cd(self._basedir)
+        version = get_version(repos, nightly)
+        name = "Bitmask-win32-{0}".format(version)
+        mv(_convert_path_for_win(os.path.join(self._basedir, "Bitmask")),
+           _convert_path_for_win(os.path.join(self._basedir, name)))
+        zf = zipfile.ZipFile("{0}.zip".format(name), "w", zipfile.ZIP_DEFLATED)
+        self._zipdir(name, zf)
+        zf.close()
         print "Done"
