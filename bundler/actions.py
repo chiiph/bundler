@@ -15,7 +15,7 @@ from utils import IS_MAC, IS_WIN
 if IS_MAC:
     from sh import SetFile, hdiutil
     from darwin_dyliber import fix_all_dylibs
-elif IS_WIN:
+if IS_WIN:
     import pbs
     from pbs import cd, glob
     git = pbs.Command("C:\\Program Files\\Git\\bin\\git.exe")
@@ -108,7 +108,7 @@ def get_version(repos, nightly):
             except:
                 pass
         m.update(version)
-    
+
     return "{0}-{1}".format(str(datetime.date.today()),
                             m.hexdigest()[:8])
 
@@ -302,7 +302,7 @@ class CopyBinaries(Action):
             import win32com
             win32comext_path = os.path.split(win32com.__file__)[0] + "ext"
             shell_path = os.path.join(win32comext_path, "shell")
-            cp("-r", 
+            cp("-r",
                _convert_path_for_win(shell_path),
                _convert_path_for_win(os.path.join(dest_lib_dir, "win32com")))
             cp(_convert_path_for_win(
@@ -459,7 +459,7 @@ class CopyMisc(Action):
         cp(_convert_path_for_win(
             os.path.join(self._basedir, "bitmask_launcher", "src", "launcher.py")),
            apps_dir)
-        cp("-r", 
+        cp("-r",
            _convert_path_for_win(os.path.join(self._basedir, "thandy", "lib", "thandy")),
            apps_dir)
         cp("-r",
