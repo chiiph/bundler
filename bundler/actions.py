@@ -444,7 +444,7 @@ class CopyAssets(Action):
                                      "Resources")
         cp(os.path.join(self._basedir, "leap_assets", "mac", "bitmask.icns"),
            resources_dir)
-        cp(os.path.join(self._basedir, "leap_assets", "mac", "leap-client.tiff"),
+        cp(os.path.join(self._basedir, "leap_assets", "mac", "bitmask.tiff"),
            resources_dir)
         print "Done"
 
