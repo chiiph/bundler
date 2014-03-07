@@ -14,7 +14,7 @@ from distutils import file_util, dir_util
 from utils import IS_MAC, IS_WIN
 
 if IS_MAC:
-    from sh import SetFile, hdiutil
+    from sh import SetFile, hdiutil, codesign
     from darwin_dyliber import fix_all_dylibs
 if IS_WIN:
     import pbs
@@ -558,7 +558,8 @@ class DmgIt(Action):
         dmg_path = os.path.join(self._basedir, dmg_name)
 
         hdiutil("create", "-srcfolder", dmg_dir, "-volname", vol_name,
-                "-format", "UDRW", "-ov",
+                "-fsargs", "-c c=64,a=16,e=16", "-fs", "HFS+",
+                "-format", "UDRW", "-ov", "-size", "500000k",
                 raw_dmg_path)
         rm("-rf", dmg_dir)
         mkdir(dmg_dir)
@@ -567,7 +568,8 @@ class DmgIt(Action):
         hdiutil("detach", dmg_dir)
 
         rm("-rf", dmg_dir)
-        hdiutil("convert", raw_dmg_path, "-format", "UDZO", "-o",
+        hdiutil("convert", raw_dmg_path, "-format", "UDZO",
+                "-imagekey", "zlib-level=9", "-o",
                 dmg_path)
         rm("-f", raw_dmg_path)
         print "Done"
@@ -646,4 +648,39 @@ class ZipIt(Action):
         zf = zipfile.ZipFile("{0}.zip".format(name), "w", zipfile.ZIP_DEFLATED)
         self._zipdir(name, zf)
         zf.close()
+        print "Done"
+
+
+class SignIt(Action):
+    def __init__(self, basedir, skip, do):
+        Action.__init__(self, "signit", basedir, skip, do)
+
+    @skippable
+    def run(self, identity):
+        print "Signing main structure, this will take a while..."
+        main_app = os.path.join(self._basedir,
+                                "Bitmask",
+                                "Bitmask.app")
+        codesign("-s", identity, "--deep", main_app)
+        print "Done"
+        print "Signing tuntap installer..."
+        tuntap_app = os.path.join(self._basedir,
+                                  "Bitmask",
+                                  "Bitmask.app",
+                                  "Contents",
+                                  "Resources",
+                                  "tuntap-installer.app")
+        codesign("-s", identity, "--deep", tuntap_app)
+        print "Done"
+        print "Signing tuntap kext..."
+        kext = os.path.join(self._basedir,
+                            "Bitmask",
+                            "Bitmask.app",
+                            "Contents",
+                            "Resources",
+                            "tuntap-installer.app",
+                            "Contents",
+                            "Extensions",
+                            "tun.kext")
+        codesign("-s", identity, "--deep", kext)
         print "Done"

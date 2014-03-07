@@ -13,7 +13,7 @@ from distutils import dir_util
 from actions import GitCloneAll, PythonSetupAll, CreateDirStructure
 from actions import CollectAllDeps, CopyBinaries, PLister, SeededConfig
 from actions import DarwinLauncher, CopyAssets, CopyMisc, FixDylibs
-from actions import DmgIt, PycRemover, TarballIt, MtEmAll, ZipIt
+from actions import DmgIt, PycRemover, TarballIt, MtEmAll, ZipIt, SignIt
 
 from utils import IS_MAC, IS_WIN
 
@@ -28,6 +28,7 @@ sorted_repos = [
     "thandy"
 ]
 
+
 @contextmanager
 def new_build_dir(default=None):
     bd = default
@@ -38,6 +39,7 @@ def new_build_dir(default=None):
     if default is None:
         dir_util.remove_tree(bd)
 
+
 def main():
     parser = argparse.ArgumentParser(description='Bundle creation tool.')
     parser.add_argument('--workon', help="")
@@ -47,6 +49,7 @@ def main():
     parser.add_argument('--binaries', help="")
     parser.add_argument('--seeded-config', help="")
     parser.add_argument('--nightly', action="store_true", help="")
+    parser.add_argument('--codesign', default="", help="")
 
     args = parser.parse_args()
 
@@ -86,10 +89,6 @@ def main():
             cb = init(CopyBinaries)
             cb.run(binaries_path)
 
-        if seeded_config is not None:
-            sc = init(SeededConfig)
-            sc.run(seeded_config)
-
         if IS_MAC:
             pl = init(PLister)
             pl.run()
@@ -109,6 +108,14 @@ def main():
         if IS_WIN:
             mt = init(MtEmAll)
             mt.run()
+
+        if IS_MAC:
+            si = init(SignIt)
+            si.run(args.codesign)
+
+        if seeded_config is not None:
+            sc = init(SeededConfig)
+            sc.run(seeded_config)
 
         if IS_MAC:
             dm = init(DmgIt)
