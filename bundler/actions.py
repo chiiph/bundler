@@ -348,7 +348,7 @@ class CopyBinaries(Action):
             cp(glob(os.path.join(binaries_path, "*.so*")), dest_lib_dir)
 
             eip_dir = platform_dir(self._basedir, "apps", "eip")
-            cp(os.path.join(binaries_path, "openvpn"), eip_dir)
+            #cp(os.path.join(binaries_path, "openvpn"), eip_dir)
 
             cp("-r", glob(os.path.join(binaries_path, "openvpn.files", "*")),
                os.path.join(eip_dir, "files"))
