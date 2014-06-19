@@ -375,13 +375,15 @@ class PLister(Action):
         <key>CFBundleInfoDictionaryVersion</key>
         <string>6.0</string>
         <key>CFBundleName</key>
-  <string>Bitmask</string>
+        <string>Bitmask</string>
         <key>CFBundlePackageType</key>
         <string>APPL</string>
         <key>CFBundleShortVersionString</key>
         <string>1</string>
         <key>LSBackgroundOnly</key>
         <false/>
+        <key>CFBundleIdentifier</key>
+        <string>se.leap.bitmask</string>
 </dict>
 </plist>""".split("\n")
 
@@ -599,12 +601,9 @@ class PycRemover(Action):
     @skippable
     def run(self):
         print "Removing .pyc files..."
-        if IS_WIN:
-            files = find(self._basedir, "-name", "*.pyc").strip().splitlines()
-            for f in files:
-                rm(f)
-        else:
-            find(self._basedir, "-name", "\"*.pyc\"", "-delete")
+        files = find(self._basedir, "-name", "*.pyc").strip().splitlines()
+        for f in files:
+            rm(f)
         print "Done"
 
 
@@ -657,21 +656,6 @@ class SignIt(Action):
 
     @skippable
     def run(self, identity):
-        print "Signing main structure, this will take a while..."
-        main_app = os.path.join(self._basedir,
-                                "Bitmask",
-                                "Bitmask.app")
-        codesign("-s", identity, "--deep", main_app)
-        print "Done"
-        print "Signing tuntap installer..."
-        tuntap_app = os.path.join(self._basedir,
-                                  "Bitmask",
-                                  "Bitmask.app",
-                                  "Contents",
-                                  "Resources",
-                                  "tuntap-installer.app")
-        codesign("-s", identity, "--deep", tuntap_app)
-        print "Done"
         print "Signing tuntap kext..."
         kext = os.path.join(self._basedir,
                             "Bitmask",
@@ -683,4 +667,19 @@ class SignIt(Action):
                             "Extensions",
                             "tun.kext")
         codesign("-s", identity, "--deep", kext)
+        print "Done"
+        print "Signing tuntap installer..."
+        tuntap_app = os.path.join(self._basedir,
+                                  "Bitmask",
+                                  "Bitmask.app",
+                                  "Contents",
+                                  "Resources",
+                                  "tuntap-installer.app")
+        codesign("-s", identity, "--deep", tuntap_app)
+        print "Done"
+        print "Signing main structure, this will take a while..."
+        main_app = os.path.join(self._basedir,
+                                "Bitmask",
+                                "Bitmask.app")
+        print codesign("-s", identity, "--force", "--deep", "--verbose", main_app)
         print "Done"
