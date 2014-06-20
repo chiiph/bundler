@@ -77,7 +77,7 @@ def main():
         gc.run(sorted_repos, args.nightly)
 
         ps = init(PythonSetupAll)
-        ps.run(sorted_repos)
+        ps.run(sorted_repos, binaries_path)
 
         cd = init(CreateDirStructure, os.path.join(bd, "Bitmask"))
         cd.run()

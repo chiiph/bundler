@@ -159,7 +159,7 @@ class PythonSetupAll(Action):
         Action.__init__(self, "pythonsetup", basedir, skip, do)
 
     @skippable
-    def run(self, sorted_repos):
+    def run(self, sorted_repos, binaries_path):
         cd(self._basedir)
         for repo in sorted_repos:
             print "Setting up", repo
@@ -187,6 +187,12 @@ class PythonSetupAll(Action):
                         make()
                         print "Running build to get correct version..."
                         python("setup.py", "build")
+                        print "Updating hashes"
+                        os.environ["OPENVPN_BIN"] = os.path.join(
+                            binaries_path, "openvpn.files", "leap-openvpn")
+                        os.environ["BITMASK_ROOT"] = os.path.join(
+                            self._basedir, repo, "pkg", "linux", "bitmask-root")
+                        python("setup.py", "hash_binaries")
                     python("setup.py", "develop")
                     sys.path.append(os.path.join(self._basedir, repo, "src"))
 
