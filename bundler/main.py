@@ -14,6 +14,7 @@ from actions import GitCloneAll, PythonSetupAll, CreateDirStructure
 from actions import CollectAllDeps, CopyBinaries, PLister, SeededConfig
 from actions import DarwinLauncher, CopyAssets, CopyMisc, FixDylibs
 from actions import DmgIt, PycRemover, TarballIt, MtEmAll, ZipIt, SignIt
+from actions import RemoveUnused
 
 from utils import IS_MAC, IS_WIN
 
@@ -124,6 +125,8 @@ def main():
             zi = init(ZipIt)
             zi.run(sorted_repos, args.nightly)
         else:
+            ru = init(RemoveUnused)
+            ru.run()
             ti = init(TarballIt)
             ti.run(sorted_repos, args.nightly)
 

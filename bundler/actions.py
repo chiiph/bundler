@@ -689,3 +689,21 @@ class SignIt(Action):
                                 "Bitmask.app")
         print codesign("-s", identity, "--force", "--deep", "--verbose", main_app)
         print "Done"
+
+
+
+class RemoveUnused(Action):
+    def __init__(self, basedir, skip, do):
+        Action.__init__(self, "rmunused", basedir, skip, do)
+
+    @skippable
+    def run(self):
+        print "Removing unused python code..."
+        test_dirs = find(self._basedir, "-name", "*test*").strip().splitlines()
+	for td in test_dirs:
+            rm("-rf", os.path.join(self._basedir, td))
+
+        twisted_used = ["aplication", "conch", "cred", "version", "internet", "mail"]
+        # twisted_files = find(self._basedir, "-name", "t
+        print "Done"
+
