@@ -139,7 +139,7 @@ class GitCloneAll(Action):
             with push_pop(repo):
                 # Thandy is a special case regarding branches, we'll just use
                 # develop
-                if repo in ["thandy", "leap_assets"]:
+                if repo in ["leap_assets"]:
                     continue
                 if not nightly:
                     git.checkout("master")
@@ -484,6 +484,12 @@ class CopyAssets(Action):
 
 
 class CopyMisc(Action):
+    TUF_CONFIG="""[General]
+updater_delay = 60
+
+[Mirror.localhost]
+url_prefix = http://dl.bitmask.net/tuf"""
+
     def __init__(self, basedir, skip, do):
         Action.__init__(self, "copymisc", basedir, skip, do)
 
@@ -502,10 +508,6 @@ class CopyMisc(Action):
         cp(_convert_path_for_win(
             os.path.join(self._basedir, "bitmask_launcher", "src",
                          "launcher.py")),
-           apps_dir)
-        cp("-r",
-           _convert_path_for_win(os.path.join(self._basedir, "thandy", "lib",
-                                              "thandy")),
            apps_dir)
         cp("-r",
            _convert_path_for_win(os.path.join(self._basedir, "bitmask_client",
@@ -527,6 +529,10 @@ class CopyMisc(Action):
             os.path.join(self._basedir,
                          "bitmask_client", "relnotes.txt")),
            _convert_path_for_win(os.path.join(self._basedir, "Bitmask")))
+        with open(os.path.join(self._basedir, "Bitmask", "launcher.conf"), "w") as f:
+            f.write(self.TUF_CONFIG)
+        mkdir("-p", os.path.join(self._basedir, "Bitmask", "repo", "metadata", "current"))
+        mkdir("-p", os.path.join(self._basedir, "Bitmask", "repo", "metadata", "previous"))
         print "Done"
 
 

@@ -26,7 +26,6 @@ sorted_repos = [
     "leap_mail",
     "bitmask_client",
     "bitmask_launcher",
-    "thandy"
 ]
 
 
