@@ -32,7 +32,7 @@ if IS_WIN:
     mv = pbs.Command("C:\\Program Files\\Git\\bin\\mv.exe")
 else:
     from sh import git, cd, python, mkdir, make, cp, glob, pip, rm
-    from sh import find, ln, tar, mv
+    from sh import find, ln, tar, mv, strip
 
 from depcollector import collect_deps
 
@@ -102,7 +102,7 @@ def get_version(repos, nightly):
     if not nightly:
         version = "unknown"
         with push_pop("bitmask_client"):
-            version = git("describe").strip()
+            version = git("describe", "--tags").strip()
         return version
 
     m = hashlib.sha256()
@@ -610,6 +610,13 @@ class PycRemover(Action):
         files = find(self._basedir, "-name", "*.pyc").strip().splitlines()
         for f in files:
             rm(f)
+        files = find(self._basedir, "-name", "*\\.so*").strip().splitlines()
+        for f in files:
+            print "Stripping", f
+            try:
+                strip(f)
+            except:
+                pass
         print "Done"
 
 
