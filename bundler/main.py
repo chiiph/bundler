@@ -100,7 +100,7 @@ def main():
             fd.run()
 
         cm = init(CopyMisc)
-        cm.run()
+        cm.run(binaries_path)
 
         pyc = init(PycRemover)
         pyc.run()

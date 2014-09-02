@@ -494,7 +494,7 @@ url_prefix = http://dl.bitmask.net/tuf"""
         Action.__init__(self, "copymisc", basedir, skip, do)
 
     @skippable
-    def run(self):
+    def run(self, binary_path):
         print "Downloading thunderbird extension..."
         ext_path = platform_dir(self._basedir, "apps",
                                 "bitmask-thunderbird-latest.xpi")
@@ -533,6 +533,8 @@ url_prefix = http://dl.bitmask.net/tuf"""
             f.write(self.TUF_CONFIG)
         mkdir("-p", os.path.join(self._basedir, "Bitmask", "repo", "metadata", "current"))
         mkdir("-p", os.path.join(self._basedir, "Bitmask", "repo", "metadata", "previous"))
+        cp(os.path.join(binary_path, "root.json"),
+           os.path.join(self._basedir, "Bitmask", "repo", "metadata", "current"))
         print "Done"
 
 
