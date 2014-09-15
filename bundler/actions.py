@@ -166,7 +166,7 @@ class PythonSetupAll(Action):
             if repo == "soledad":
                 for subrepo in ["common", "client"]:
                     with push_pop(repo, subrepo):
-                        pip("install", "-r", "pkg/requirements.pip")
+                        pip("install", "-r", "pkg/requirements.pip", "--upgrade")
                         python("setup.py", "develop")
                         sys.path.append(os.path.join(self._basedir,
                                                      repo, subrepo, "src"))
@@ -176,12 +176,12 @@ class PythonSetupAll(Action):
             else:
                 with push_pop(repo):
                     if repo != "thandy":
-                        pip("install", "-r", "pkg/requirements.pip")
+                        pip("install", "-r", "pkg/requirements.pip", "--upgrade")
                     else:
                         # Thandy is a special kid at this point in
                         # terms of packaging. So we install
                         # dependencies ourselves for the time being
-                        pip("install", "pycrypto")
+                        pip("install", "pycrypto", "--upgrade")
                     if repo == "bitmask_client":
                         print "Running make on the client..."
                         make()
