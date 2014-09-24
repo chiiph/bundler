@@ -24,7 +24,6 @@ def collect_deps(root, dest_lib_dir, path_file):
     mg.import_hook("scrypt")
     mg.import_hook("_scrypt")
     mg.import_hook("ConfigParser")
-    mg.import_hook("Crypto")
     mg.import_hook("encodings.idna")
     mg.import_hook("leap.soledad.client")
     mg.import_hook("leap.mail")
