@@ -4,6 +4,7 @@ import os
 import stat
 import subprocess
 import sys
+import textwrap
 import urllib
 import zipfile
 
@@ -367,33 +368,36 @@ class CopyBinaries(Action):
 
 
 class PLister(Action):
-    plist = """<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-        <key>CFBundleDisplayName</key>
-        <string>Bitmask</string>
-        <key>CFBundleExecutable</key>
-        <string>MacOS/bitmask-launcher</string>
-        <key>CFBundleIconFile</key>
-        <string>bitmask.icns</string>
-        <key>CFBundleInfoDictionaryVersion</key>
-        <string>6.0</string>
-        <key>CFBundleName</key>
-        <string>Bitmask</string>
-        <key>CFBundlePackageType</key>
-        <string>APPL</string>
-        <key>CFBundleShortVersionString</key>
-        <string>1</string>
-        <key>LSBackgroundOnly</key>
-        <false/>
-        <key>CFBundleIdentifier</key>
-        <string>se.leap.bitmask</string>
-</dict>
-</plist>""".split("\n")
+    plist = textwrap.dedent("""\
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>CFBundleDisplayName</key>
+            <string>Bitmask</string>
+            <key>CFBundleExecutable</key>
+            <string>MacOS/bitmask-launcher</string>
+            <key>CFBundleIconFile</key>
+            <string>bitmask.icns</string>
+            <key>CFBundleInfoDictionaryVersion</key>
+            <string>6.0</string>
+            <key>CFBundleName</key>
+            <string>Bitmask</string>
+            <key>CFBundlePackageType</key>
+            <string>APPL</string>
+            <key>CFBundleShortVersionString</key>
+            <string>1</string>
+            <key>LSBackgroundOnly</key>
+            <false/>
+            <key>CFBundleIdentifier</key>
+            <string>se.leap.bitmask</string>
+        </dict>
+        </plist>""").split("\n")
 
-    qtconf = """[Paths]
-Plugins = PlugIns"""
+    qtconf = textwrap.dedent(
+        """\
+        [Paths]
+        Plugins = PlugIns""")
 
     def __init__(self, basedir, skip, do):
         Action.__init__(self, "plister", basedir, skip, do)
@@ -431,18 +435,20 @@ class SeededConfig(Action):
 
 
 class DarwinLauncher(Action):
-    launcher = """#!/bin/bash
-#
-# Launcher for the LEAP Client under OSX
-#
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd)"
-export DYLD_LIBRARY_PATH=$DIR/lib
-export PATH=$DIR/../Resources/:$PATH
-# ---------------------------
-# DEBUG Info -- enable this if you
-# are having problems with dynamic libraries loading
+    launcher = textwrap.dedent(
+        """\
+        #!/bin/bash
+        #
+        # Launcher for the LEAP Client under OSX
+        #
+        DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd)"
+        export DYLD_LIBRARY_PATH=$DIR/lib
+        export PATH=$DIR/../Resources/:$PATH
+        # ---------------------------
+        # DEBUG Info -- enable this if you
+        # are having problems with dynamic libraries loading
 
-cd "${DIR}" && ./Bitmask $1 $2 $3 $4 $5""".split("\n")
+        cd "${DIR}" && ./Bitmask $1 $2 $3 $4 $5""").split("\n")
 
     def __init__(self, basedir, skip, do):
         Action.__init__(self, "darwinlauncher", basedir, skip, do)
@@ -483,11 +489,12 @@ class CopyAssets(Action):
 
 
 class CopyMisc(Action):
-    TUF_CONFIG="""[General]
-updater_delay = 60
+    TUF_CONFIG = textwrap.dedent("""\
+        [General]
+        updater_delay = 60
 
-[Mirror.localhost]
-url_prefix = http://dl.bitmask.net/tuf"""
+        [Mirror.localhost]
+        url_prefix = http://dl.bitmask.net/tuf""")
 
     def __init__(self, basedir, skip, do):
         Action.__init__(self, "copymisc", basedir, skip, do)
