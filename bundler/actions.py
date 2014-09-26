@@ -2,10 +2,11 @@ import datetime
 import hashlib
 import os
 import stat
-import sys
 import subprocess
-import zipfile
+import sys
+import textwrap
 import urllib
+import zipfile
 
 from abc import ABCMeta, abstractmethod
 from contextlib import contextmanager
@@ -78,17 +79,12 @@ def skippable(func):
 
 
 def platform_dir(basedir, *args):
-    dir = os.path.join(basedir,
-                       "Bitmask",
-                       *args)
+    dir_ = os.path.join(basedir, "Bitmask", *args)
+
     if IS_MAC:
-        dir = os.path.join(basedir,
-                           "Bitmask",
-                           "Bitmask.app",
-                           "Contents",
-                           "MacOS",
-                           *args)
-    return dir
+        dir_ = os.path.join(basedir, "Bitmask", "Bitmask.app",
+                            "Contents", "MacOS", *args)
+    return dir_
 
 
 @contextmanager
@@ -132,15 +128,17 @@ class GitCloneAll(Action):
     def run(self, sorted_repos, nightly):
         print "Cloning repositories..."
         cd(self._basedir)
+
         for repo in sorted_repos:
             print "Cloning", repo
             rm("-rf", repo)
             git.clone(self._repo_url(repo), repo)
+
             with push_pop(repo):
-                # Thandy is a special case regarding branches, we'll just use
-                # develop
                 if repo in ["leap_assets"]:
+                    # leap_assets only has 'master'
                     continue
+
                 if not nightly:
                     git.checkout("master")
                     git.pull("--ff-only", "origin", "master")
@@ -158,41 +156,43 @@ class PythonSetupAll(Action):
     def __init__(self, basedir, skip, do):
         Action.__init__(self, "pythonsetup", basedir, skip, do)
 
+    def _build_client(self, repo, binaries_path):
+        print "Running make on the client..."
+        make()
+        print "Running build to get correct version..."
+        python("setup.py", "build")
+        print "Updating hashes"
+        os.environ["OPENVPN_BIN"] = os.path.join(
+            binaries_path, "openvpn.files", "leap-openvpn")
+        os.environ["BITMASK_ROOT"] = os.path.join(
+            self._basedir, repo, "pkg", "linux", "bitmask-root")
+        python("setup.py", "hash_binaries")
+
     @skippable
     def run(self, sorted_repos, binaries_path):
         cd(self._basedir)
         for repo in sorted_repos:
+
+            if repo in ["bitmask_launcher", "leap_assets"]:
+                print "Skipping repo: {0}...".format(repo)
+                continue
+
             print "Setting up", repo
+
             if repo == "soledad":
                 for subrepo in ["common", "client"]:
                     with push_pop(repo, subrepo):
-                        pip("install", "-r", "pkg/requirements.pip", "--upgrade")
+                        pip("install", "-r", "pkg/requirements.pip")
                         python("setup.py", "develop")
                         sys.path.append(os.path.join(self._basedir,
                                                      repo, subrepo, "src"))
-            elif repo in ["bitmask_launcher", "leap_assets"]:
-                print "Skipping launcher..."
-                continue
             else:
                 with push_pop(repo):
-                    if repo != "thandy":
-                        pip("install", "-r", "pkg/requirements.pip", "--upgrade")
-                    else:
-                        # Thandy is a special kid at this point in
-                        # terms of packaging. So we install
-                        # dependencies ourselves for the time being
-                        pip("install", "pycrypto", "--upgrade")
+                    pip("install", "-r", "pkg/requirements.pip")
+
                     if repo == "bitmask_client":
-                        print "Running make on the client..."
-                        make()
-                        print "Running build to get correct version..."
-                        python("setup.py", "build")
-                        print "Updating hashes"
-                        os.environ["OPENVPN_BIN"] = os.path.join(
-                            binaries_path, "openvpn.files", "leap-openvpn")
-                        os.environ["BITMASK_ROOT"] = os.path.join(
-                            self._basedir, repo, "pkg", "linux", "bitmask-root")
-                        python("setup.py", "hash_binaries")
+                        self._build_client(repo, binaries_path)
+
                     python("setup.py", "develop")
                     sys.path.append(os.path.join(self._basedir, repo, "src"))
 
@@ -354,7 +354,7 @@ class CopyBinaries(Action):
             cp(glob(os.path.join(binaries_path, "*.so*")), dest_lib_dir)
 
             eip_dir = platform_dir(self._basedir, "apps", "eip")
-            #cp(os.path.join(binaries_path, "openvpn"), eip_dir)
+            # cp(os.path.join(binaries_path, "openvpn"), eip_dir)
 
             cp("-r", glob(os.path.join(binaries_path, "openvpn.files", "*")),
                os.path.join(eip_dir, "files"))
@@ -368,33 +368,36 @@ class CopyBinaries(Action):
 
 
 class PLister(Action):
-    plist = """<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-        <key>CFBundleDisplayName</key>
-        <string>Bitmask</string>
-        <key>CFBundleExecutable</key>
-        <string>MacOS/bitmask-launcher</string>
-        <key>CFBundleIconFile</key>
-        <string>bitmask.icns</string>
-        <key>CFBundleInfoDictionaryVersion</key>
-        <string>6.0</string>
-        <key>CFBundleName</key>
-        <string>Bitmask</string>
-        <key>CFBundlePackageType</key>
-        <string>APPL</string>
-        <key>CFBundleShortVersionString</key>
-        <string>1</string>
-        <key>LSBackgroundOnly</key>
-        <false/>
-        <key>CFBundleIdentifier</key>
-        <string>se.leap.bitmask</string>
-</dict>
-</plist>""".split("\n")
+    plist = textwrap.dedent("""\
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>CFBundleDisplayName</key>
+            <string>Bitmask</string>
+            <key>CFBundleExecutable</key>
+            <string>MacOS/bitmask-launcher</string>
+            <key>CFBundleIconFile</key>
+            <string>bitmask.icns</string>
+            <key>CFBundleInfoDictionaryVersion</key>
+            <string>6.0</string>
+            <key>CFBundleName</key>
+            <string>Bitmask</string>
+            <key>CFBundlePackageType</key>
+            <string>APPL</string>
+            <key>CFBundleShortVersionString</key>
+            <string>1</string>
+            <key>LSBackgroundOnly</key>
+            <false/>
+            <key>CFBundleIdentifier</key>
+            <string>se.leap.bitmask</string>
+        </dict>
+        </plist>""").split("\n")
 
-    qtconf = """[Paths]
-Plugins = PlugIns"""
+    qtconf = textwrap.dedent(
+        """\
+        [Paths]
+        Plugins = PlugIns""")
 
     def __init__(self, basedir, skip, do):
         Action.__init__(self, "plister", basedir, skip, do)
@@ -432,18 +435,20 @@ class SeededConfig(Action):
 
 
 class DarwinLauncher(Action):
-    launcher = """#!/bin/bash
-#
-# Launcher for the LEAP Client under OSX
-#
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd)"
-export DYLD_LIBRARY_PATH=$DIR/lib
-export PATH=$DIR/../Resources/:$PATH
-# ---------------------------
-# DEBUG Info -- enable this if you
-# are having problems with dynamic libraries loading
+    launcher = textwrap.dedent(
+        """\
+        #!/bin/bash
+        #
+        # Launcher for the LEAP Client under OSX
+        #
+        DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd)"
+        export DYLD_LIBRARY_PATH=$DIR/lib
+        export PATH=$DIR/../Resources/:$PATH
+        # ---------------------------
+        # DEBUG Info -- enable this if you
+        # are having problems with dynamic libraries loading
 
-cd "${DIR}" && ./Bitmask $1 $2 $3 $4 $5""".split("\n")
+        cd "${DIR}" && ./Bitmask $1 $2 $3 $4 $5""").split("\n")
 
     def __init__(self, basedir, skip, do):
         Action.__init__(self, "darwinlauncher", basedir, skip, do)
@@ -484,11 +489,12 @@ class CopyAssets(Action):
 
 
 class CopyMisc(Action):
-    TUF_CONFIG="""[General]
-updater_delay = 60
+    TUF_CONFIG = textwrap.dedent("""\
+        [General]
+        updater_delay = 60
 
-[Mirror.localhost]
-url_prefix = http://dl.bitmask.net/tuf"""
+        [Mirror.localhost]
+        url_prefix = http://dl.bitmask.net/tuf""")
 
     def __init__(self, basedir, skip, do):
         Action.__init__(self, "copymisc", basedir, skip, do)
@@ -529,12 +535,16 @@ url_prefix = http://dl.bitmask.net/tuf"""
             os.path.join(self._basedir,
                          "bitmask_client", "relnotes.txt")),
            _convert_path_for_win(os.path.join(self._basedir, "Bitmask")))
-        with open(os.path.join(self._basedir, "Bitmask", "launcher.conf"), "w") as f:
+
+        launcher_path = os.path.join(self._basedir, "Bitmask", "launcher.conf")
+        with open(launcher_path, "w") as f:
             f.write(self.TUF_CONFIG)
-        mkdir("-p", os.path.join(self._basedir, "Bitmask", "repo", "metadata", "current"))
-        mkdir("-p", os.path.join(self._basedir, "Bitmask", "repo", "metadata", "previous"))
+
+        metadata = os.path.join(self._basedir, "Bitmask", "repo", "metadata")
+        mkdir("-p", os.path.join(metadata, "current"))
+        mkdir("-p", os.path.join(metadata, "previous"))
         cp(os.path.join(binary_path, "root.json"),
-           os.path.join(self._basedir, "Bitmask", "repo", "metadata", "current"))
+           os.path.join(metadata, "current"))
         print "Done"
 
 
@@ -702,9 +712,9 @@ class SignIt(Action):
         main_app = os.path.join(self._basedir,
                                 "Bitmask",
                                 "Bitmask.app")
-        print codesign("-s", identity, "--force", "--deep", "--verbose", main_app)
+        print codesign("-s", identity, "--force",
+                       "--deep", "--verbose", main_app)
         print "Done"
-
 
 
 class RemoveUnused(Action):
@@ -715,10 +725,10 @@ class RemoveUnused(Action):
     def run(self):
         print "Removing unused python code..."
         test_dirs = find(self._basedir, "-name", "*test*").strip().splitlines()
-	for td in test_dirs:
+        for td in test_dirs:
             rm("-rf", os.path.join(self._basedir, td))
 
-        twisted_used = ["aplication", "conch", "cred", "version", "internet", "mail"]
+        # twisted_used = ["aplication", "conch", "cred",
+        #                 "version", "internet", "mail"]
         # twisted_files = find(self._basedir, "-name", "t
         print "Done"
-
